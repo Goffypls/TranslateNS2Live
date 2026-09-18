@@ -106,6 +106,7 @@ curl http://localhost:8000/health
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements-client.txt
+pip install -e .            # instala el paquete en modo editable (necesario para los `python -m translatens2live...`)
 ```
 
 1. Conectá la capturadora y confirmá qué índice de dispositivo le asigna Windows/OpenCV:
