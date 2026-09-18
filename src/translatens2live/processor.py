@@ -6,13 +6,23 @@ usa el servidor (`server/main.py`), que lo expone por HTTP para que un
 cliente liviano en la PC del usuario no tenga que instalar PaddleOCR,
 manga-ocr ni argos-translate.
 
-La "inteligencia" de no retraducir todo cada vez vive acá: por cada recuadro
-detectado se le pregunta al `RegionTracker` si ese mismo recuadro (misma
-posición + mismo contenido, vía hash) ya se tradujo en un frame anterior; si
-es así se reusa la traducción sin tocar el OCR ni el traductor. Si es texto
-nuevo pero coincide con algo ya traducido antes (mismo diálogo repetido en
-otra parte de la pantalla), se reusa desde la `TranslationCache` en vez de
-volver a llamar al traductor.
+La "inteligencia" de no retraducir todo cada vez tiene dos niveles:
+
+1. A nivel de frame completo: si la pantalla no cambió respecto al frame
+   anterior (dentro de un margen de ruido de la captura), no se corre nada
+   del pipeline — ni detector, ni OCR, ni traductor — y se devuelve
+   exactamente el mismo resultado ya calculado. Esto es lo que evita el
+   "titileo": el detector no es determinístico al 100% entre corridas (el
+   ruido normal de una captura de video hace que las cajas tiemblen unos
+   píxeles de un frame a otro), así que si ni siquiera hace falta volver a
+   correrlo, no hay tembladera posible.
+2. A nivel de recuadro individual (cuando el frame sí cambió en algún
+   lado): se le pregunta al `RegionTracker` si ese mismo recuadro (misma
+   posición + mismo contenido, vía hash) ya se tradujo antes; si es así se
+   reusa la traducción sin tocar el OCR ni el traductor. Si es texto nuevo
+   pero coincide con algo ya traducido antes (mismo diálogo repetido en
+   otra parte de la pantalla), se reusa desde la `TranslationCache` en vez
+   de volver a llamar al traductor.
 """
 
 from __future__ import annotations
@@ -48,6 +58,8 @@ class FrameProcessor:
             content_change_threshold=config.tracker.content_change_threshold,
             stable_frames_to_lock=config.tracker.stable_frames_to_lock,
         )
+        self._last_frame_signature: np.ndarray | None = None
+        self._last_results: list[TranslatedBox] = []
 
     def warmup(self) -> None:
         """Carga los modelos por adelantado (detector, OCR, traductor).
@@ -72,6 +84,18 @@ class FrameProcessor:
                 print(f"[warmup] no se pudo precargar {name}: {exc}")
 
     def process(self, frame_bgr: np.ndarray) -> list[TranslatedBox]:
+        signature = _frame_signature(frame_bgr)
+        if self._last_frame_signature is not None and not _frame_changed(
+            self._last_frame_signature, signature, self._config.pipeline.frame_change_threshold
+        ):
+            # La pantalla no cambió (dentro del margen de ruido de la
+            # captura): no se toca el detector/OCR/traductor, se devuelve la
+            # misma traducción de siempre. Congela el overlay en vez de
+            # dejarlo temblar por corridas del detector levemente distintas
+            # sobre una imagen que en la práctica es la misma.
+            return list(self._last_results)
+        self._last_frame_signature = signature
+
         boxes = self._detector.detect(frame_bgr)
         boxes = merge_line_boxes(boxes, self._config.detection.line_merge_gap_factor)
         boxes = boxes[: self._config.pipeline.max_boxes_per_frame]
@@ -105,6 +129,7 @@ class FrameProcessor:
                 results.append(updated)
 
         self._tracker.prune(boxes)
+        self._last_results = results
         return results
 
     def clear_cache(self) -> None:
@@ -115,6 +140,20 @@ class FrameProcessor:
 
     def cache_size(self) -> int:
         return len(self._cache)
+
+
+_SIGNATURE_SIZE = (160, 90)  # chico y grosero a propósito: solo para detectar "cambió o no"
+
+
+def _frame_signature(frame_bgr: np.ndarray) -> np.ndarray:
+    small = cv2.resize(frame_bgr, _SIGNATURE_SIZE, interpolation=cv2.INTER_AREA)
+    gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+    return gray.astype(np.int16)
+
+
+def _frame_changed(prev: np.ndarray, current: np.ndarray, threshold: float) -> bool:
+    diff = float(np.abs(prev - current).mean())
+    return diff > threshold
 
 
 def _safe_crop(frame_bgr: np.ndarray, bbox: BBox) -> np.ndarray:

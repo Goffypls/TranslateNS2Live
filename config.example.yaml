@@ -44,6 +44,7 @@ pipeline:
   max_boxes_per_frame: 12
   max_send_width: 1280     # el cliente achica el frame a este ancho antes de mandarlo (0 = no achicar)
   overlay_max_age_s: 1.0    # si la última traducción es más vieja que esto, se deja de mostrar
+  frame_change_threshold: 2.5 # si la pantalla no cambió más que esto, no se reprocesa nada (evita el titileo)
 
 overlay:
   font_path: assets/fonts/NotoSansJP-Regular.otf

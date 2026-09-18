@@ -78,6 +78,14 @@ class PipelineConfig:
     # se deja de dibujar en vez de quedar "pegada" mostrando algo que ya no
     # corresponde a lo que se ve en pantalla.
     overlay_max_age_s: float = 1.0
+    # El servidor compara cada frame contra el anterior (en miniatura, en
+    # escala de grises); si la diferencia promedio de brillo por píxel no
+    # supera esto, se considera "la misma pantalla" y NO se corre detección
+    # ni OCR ni traducción: se devuelve la traducción ya calculada, sin
+    # tocarla. Esto es lo que evita que el overlay tiemble/titile en una
+    # pantalla estática. Subilo si notás que tarda en reaccionar a cambios
+    # reales; bajalo si tarda en "congelarse" del todo.
+    frame_change_threshold: float = 2.5
 
 
 @dataclass
