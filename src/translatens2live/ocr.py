@@ -21,6 +21,9 @@ class JapaneseOcr(ABC):
     def recognize(self, crop_bgr: np.ndarray) -> str:
         """Reconoce el texto japonés en un recorte (BGR, uint8). Puede devolver ''."""
 
+    def warmup(self) -> None:
+        """Fuerza la carga del modelo por adelantado."""
+
 
 class MangaOcrRecognizer(JapaneseOcr):
     def __init__(self, config: OcrConfig) -> None:
@@ -33,6 +36,9 @@ class MangaOcrRecognizer(JapaneseOcr):
         from manga_ocr import MangaOcr  # import perezoso
 
         self._model = MangaOcr()
+
+    def warmup(self) -> None:
+        self._ensure_loaded()
 
     def recognize(self, crop_bgr: np.ndarray) -> str:
         if crop_bgr.size == 0:

@@ -27,16 +27,34 @@ _config = load_config(_config_path)
 app = FastAPI(title="GoofypTrans engine")
 _processor = FrameProcessor(_config)
 _lock = threading.Lock()
+_ready = threading.Event()
+
+
+@app.on_event("startup")
+def _warmup_in_background() -> None:
+    def _run() -> None:
+        print("[startup] precargando modelos (detector, OCR, traductor)...")
+        _processor.warmup()
+        _ready.set()
+        print("[startup] listo, /translate ya puede recibir frames.")
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "cache_size": _processor.cache_size()}
+    return {"status": "ok" if _ready.is_set() else "warming_up", "cache_size": _processor.cache_size()}
 
 
 @app.post("/translate")
 async def translate(request: Request) -> JSONResponse:
     """Recibe un frame como JPEG crudo en el body y devuelve los recuadros traducidos."""
+
+    if not _ready.is_set():
+        return JSONResponse(
+            {"error": "el servidor todavía está cargando los modelos, reintentá en unos segundos"},
+            status_code=503,
+        )
 
     body = await request.body()
     if not body:

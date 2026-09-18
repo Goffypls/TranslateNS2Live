@@ -6,7 +6,7 @@ server:
   # Solo lo usa el cliente para saber a quién mandarle los frames. El puerto
   # tiene que matchear el que publica docker-compose.yml (8000 por defecto).
   url: http://localhost:8000
-  timeout_s: 5.0
+  timeout_s: 15.0   # margen para CPUs lentas procesando un frame completo
 
 capture:
   device_index: 0          # ver `python -m translatens2live.client.list_devices`

@@ -48,6 +48,28 @@ class FrameProcessor:
             stable_frames_to_lock=config.tracker.stable_frames_to_lock,
         )
 
+    def warmup(self) -> None:
+        """Carga los modelos por adelantado (detector, OCR, traductor).
+
+        Se llama al arrancar el servidor para que el primer request real de
+        un cliente no tenga que esperar la descarga/inicialización de los
+        modelos (eso podía tardar más que el timeout HTTP del cliente).
+        Cada componente se intenta por separado: si el traductor todavía no
+        tiene los paquetes de argos-translate instalados, el servidor igual
+        levanta (el detector/OCR quedan listos) y el error se ve recién al
+        traducir, con un mensaje que indica correr `setup_models`.
+        """
+
+        for name, component in (
+            ("detector", self._detector),
+            ("ocr", self._ocr),
+            ("translator", self._translator),
+        ):
+            try:
+                component.warmup()
+            except Exception as exc:
+                print(f"[warmup] no se pudo precargar {name}: {exc}")
+
     def process(self, frame_bgr: np.ndarray) -> list[TranslatedBox]:
         boxes = self._detector.detect(frame_bgr)
         boxes = boxes[: self._config.pipeline.max_boxes_per_frame]

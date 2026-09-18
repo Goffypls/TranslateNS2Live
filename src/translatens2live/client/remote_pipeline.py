@@ -60,6 +60,9 @@ class RemoteProcessingThread:
                 headers={"Content-Type": "image/jpeg"},
                 timeout=self._config.server.timeout_s,
             )
+            if resp.status_code == 503:
+                print("[remote] el servidor todavía está cargando los modelos, esperando...")
+                return
             resp.raise_for_status()
             boxes = boxes_from_json(resp.json()["boxes"])
         except requests.RequestException as exc:

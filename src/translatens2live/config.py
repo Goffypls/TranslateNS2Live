@@ -75,7 +75,7 @@ class ServerConfig:
     host: str = "0.0.0.0"
     port: int = 8000
     url: str = "http://localhost:8000"
-    timeout_s: float = 5.0
+    timeout_s: float = 15.0
 
 
 @dataclass

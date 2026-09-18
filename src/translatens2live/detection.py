@@ -21,6 +21,10 @@ class TextDetector(ABC):
     def detect(self, frame_bgr: np.ndarray) -> list[BBox]:
         """Devuelve las bounding boxes de texto encontradas en el frame (BGR, uint8)."""
 
+    def warmup(self) -> None:
+        """Fuerza la carga del modelo por adelantado (evita que el primer
+        request real pague el costo de descarga/inicialización)."""
+
 
 class PaddleTextDetector(TextDetector):
     """Detector de regiones de texto basado en PaddleOCR (solo la etapa `det`)."""
@@ -40,6 +44,9 @@ class PaddleTextDetector(TextDetector):
             det_db_box_thresh=self._config.det_db_box_thresh,
             show_log=False,
         )
+
+    def warmup(self) -> None:
+        self._ensure_loaded()
 
     def detect(self, frame_bgr: np.ndarray) -> list[BBox]:
         self._ensure_loaded()

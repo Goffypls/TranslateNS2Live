@@ -19,6 +19,9 @@ class Translator(ABC):
     def translate(self, text: str) -> str:
         """Traduce `text` (idioma origen configurado) al idioma destino configurado."""
 
+    def warmup(self) -> None:
+        """Fuerza la carga del modelo/paquetes por adelantado."""
+
 
 class ArgosTranslator(Translator):
     def __init__(self, config: TranslationConfig) -> None:
@@ -63,6 +66,9 @@ class ArgosTranslator(Translator):
 
         self._loaded = True
 
+    def warmup(self) -> None:
+        self._ensure_loaded()
+
     def translate(self, text: str) -> str:
         if not text.strip():
             return ""
@@ -87,6 +93,9 @@ class DeepLTranslator(Translator):
         import deepl
 
         self._client = deepl.Translator(self._config.deepl_api_key)
+
+    def warmup(self) -> None:
+        self._ensure_loaded()
 
     def translate(self, text: str) -> str:
         if not text.strip():
