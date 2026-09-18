@@ -12,7 +12,7 @@ from .capture import CaptureThread
 from .overlay import render_overlay
 from .remote_pipeline import RemoteProcessingThread
 
-WINDOW_NAME = "TranslateNS2Live"
+WINDOW_NAME = "GoofypTrans"
 
 
 def run(config: AppConfig) -> None:

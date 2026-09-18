@@ -24,7 +24,7 @@ from ..protocol import boxes_to_json
 _config_path = os.environ.get("CONFIG_PATH", "config.yaml")
 _config = load_config(_config_path)
 
-app = FastAPI(title="TranslateNS2Live engine")
+app = FastAPI(title="GoofypTrans engine")
 _processor = FrameProcessor(_config)
 _lock = threading.Lock()
 

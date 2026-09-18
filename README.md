@@ -1,4 +1,4 @@
-# TranslateNS2Live
+# GoofypTrans
 
 Traducción en vivo (japonés → español) para consolas importadas capturadas por HDMI —
 pensado originalmente para una Nintendo Switch 2 japonesa leída a través de una
