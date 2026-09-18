@@ -23,6 +23,11 @@ class DetectionConfig:
     backend: str = "paddleocr"
     min_box_area: int = 120
     det_db_box_thresh: float = 0.5
+    # Cuánto se expande cada caja detectada antes de agruparla con vecinas.
+    # Subirlo ayuda a que títulos con caracteres separados (típico de logos
+    # de juego) se detecten como una sola caja en vez de fragmentos chicos
+    # que después se descartan como ruido.
+    det_db_unclip_ratio: float = 1.8
 
 
 @dataclass
@@ -49,8 +54,17 @@ class TrackerConfig:
 
 @dataclass
 class PipelineConfig:
-    process_every_ms: int = 150
+    process_every_ms: int = 100
     max_boxes_per_frame: int = 12
+    # El cliente achica el frame a este ancho máximo antes de mandarlo al
+    # servidor (0 = mandar a resolución original). PaddleOCR/manga-ocr
+    # tardan más cuanto más grande es la imagen, así que esto es la palanca
+    # más grande para bajar la latencia end-to-end.
+    max_send_width: int = 1280
+    # Si la última traducción recibida para una caja es más vieja que esto,
+    # se deja de dibujar en vez de quedar "pegada" mostrando algo que ya no
+    # corresponde a lo que se ve en pantalla.
+    overlay_max_age_s: float = 1.0
 
 
 @dataclass

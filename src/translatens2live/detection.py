@@ -42,6 +42,7 @@ class PaddleTextDetector(TextDetector):
             lang="japan",
             use_angle_cls=False,
             det_db_box_thresh=self._config.det_db_box_thresh,
+            det_db_unclip_ratio=self._config.det_db_unclip_ratio,
             show_log=False,
         )
 
