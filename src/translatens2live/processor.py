@@ -1,25 +1,21 @@
-"""Orquesta captura + detección + OCR + traducción en hilos separados.
+"""Motor de traducción por frame: detección + OCR + traducción + tracking/caché.
 
-El hilo de procesamiento corre a su propio ritmo (`process_every_ms`) sobre
-el frame más reciente disponible, y para cada recuadro detectado:
+Es el "cerebro" pesado (modelos de ML) del proyecto. No sabe nada de video en
+vivo ni de ventanas: recibe un frame y devuelve los recuadros traducidos. Lo
+usa el servidor (`server/main.py`), que lo expone por HTTP para que un
+cliente liviano en la PC del usuario no tenga que instalar PaddleOCR,
+manga-ocr ni argos-translate.
 
-1. Calcula un hash de contenido del recorte.
-2. Le pregunta al `RegionTracker` si ese recuadro (por posición+contenido)
-   ya se tradujo antes y no cambió -> si es así, reusa la traducción sin
-   tocar el OCR ni el traductor.
-3. Si es nuevo o cambió: corre OCR, busca en la `TranslationCache` por texto
-   normalizado (puede ya estar cacheado aunque el recuadro se haya movido de
-   posición), y si tampoco está ahí, llama al `Translator`.
-
-El resultado (`list[TranslatedBox]`) queda disponible para que el hilo de
-render lo dibuje sobre cada frame sin tener que esperar al procesamiento.
+La "inteligencia" de no retraducir todo cada vez vive acá: por cada recuadro
+detectado se le pregunta al `RegionTracker` si ese mismo recuadro (misma
+posición + mismo contenido, vía hash) ya se tradujo en un frame anterior; si
+es así se reusa la traducción sin tocar el OCR ni el traductor. Si es texto
+nuevo pero coincide con algo ya traducido antes (mismo diálogo repetido en
+otra parte de la pantalla), se reusa desde la `TranslationCache` en vez de
+volver a llamar al traductor.
 """
 
 from __future__ import annotations
-
-import threading
-import time
-from typing import Callable
 
 import cv2
 import numpy as np
@@ -33,7 +29,7 @@ from .translator import Translator, get_translator
 from .types import BBox, TranslatedBox
 
 
-class ProcessingThread:
+class FrameProcessor:
     def __init__(
         self,
         config: AppConfig,
@@ -52,34 +48,7 @@ class ProcessingThread:
             stable_frames_to_lock=config.tracker.stable_frames_to_lock,
         )
 
-        self._latest_boxes: list[TranslatedBox] = []
-        self._lock = threading.Lock()
-        self._stop_event = threading.Event()
-        self._thread: threading.Thread | None = None
-        self._get_frame: Callable[[], np.ndarray | None] | None = None  # inyectado en start()
-
-    def start(self, get_frame: Callable[[], np.ndarray | None]) -> None:
-        """`get_frame` es un callable sin argumentos que devuelve el último frame (o None)."""
-
-        self._get_frame = get_frame
-        self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
-
-    def _run(self) -> None:
-        interval = self._config.pipeline.process_every_ms / 1000.0
-        while not self._stop_event.is_set():
-            start = time.monotonic()
-            frame = self._get_frame() if self._get_frame else None
-            if frame is not None:
-                try:
-                    self._process_frame(frame)
-                except Exception as exc:  # nunca tirar abajo el hilo de procesamiento
-                    print(f"[processing] error: {exc}")
-            elapsed = time.monotonic() - start
-            time.sleep(max(0.0, interval - elapsed))
-
-    def _process_frame(self, frame_bgr: np.ndarray) -> None:
+    def process(self, frame_bgr: np.ndarray) -> list[TranslatedBox]:
         boxes = self._detector.detect(frame_bgr)
         boxes = boxes[: self._config.pipeline.max_boxes_per_frame]
 
@@ -112,21 +81,16 @@ class ProcessingThread:
                 results.append(updated)
 
         self._tracker.prune(boxes)
-        with self._lock:
-            self._latest_boxes = results
-
-    def get_latest_boxes(self) -> list[TranslatedBox]:
-        with self._lock:
-            return list(self._latest_boxes)
+        return results
 
     def clear_cache(self) -> None:
         self._cache.clear()
 
-    def stop(self) -> None:
-        self._stop_event.set()
-        if self._thread is not None:
-            self._thread.join(timeout=2.0)
+    def save_cache(self) -> None:
         self._cache.save()
+
+    def cache_size(self) -> int:
+        return len(self._cache)
 
 
 def _safe_crop(frame_bgr: np.ndarray, bbox: BBox) -> np.ndarray:

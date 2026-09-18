@@ -16,8 +16,8 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from .config import OverlayConfig
-from .types import TranslatedBox
+from ..config import OverlayConfig
+from ..types import TranslatedBox
 
 
 @lru_cache(maxsize=4)

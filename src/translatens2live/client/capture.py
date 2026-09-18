@@ -15,7 +15,7 @@ import time
 import cv2
 import numpy as np
 
-from .config import CaptureConfig
+from ..config import CaptureConfig
 
 _BACKEND_FLAGS = {
     "dshow": cv2.CAP_DSHOW,

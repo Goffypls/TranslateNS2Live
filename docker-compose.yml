@@ -1,0 +1,24 @@
+services:
+  translator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # Config propia sin tener que reconstruir la imagen.
+      - ./config.yaml:/app/config.yaml:ro
+      # Caché de traducciones persistente entre reinicios (si config.yaml
+      # apunta cache.persist_path a algo dentro de /app/cache).
+      - ./cache:/app/cache
+      # Modelos descargados (PaddleOCR, manga-ocr/HuggingFace, argos-translate)
+      # en volúmenes con nombre para no volver a bajarlos en cada rebuild.
+      - paddleocr-models:/root/.paddleocr
+      - huggingface-models:/root/.cache/huggingface
+      - argos-models:/root/.local/share/argos-translate
+    restart: unless-stopped
+
+volumes:
+  paddleocr-models:
+  huggingface-models:
+  argos-models:

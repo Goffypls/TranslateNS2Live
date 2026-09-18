@@ -1,0 +1,9 @@
+# Cliente liviano: solo captura de video + overlay + llamadas HTTP al servidor.
+# A propósito NO incluye paddleocr/manga-ocr/argos-translate: esos modelos
+# pesados viven únicamente en el servidor (ver requirements-server.txt).
+
+opencv-python>=4.9.0
+Pillow>=10.0.0
+numpy>=1.26.0
+PyYAML>=6.0.1
+requests>=2.31.0

@@ -1,0 +1,23 @@
+# Motor de traducción (corre dentro de Docker). Todo gratis / offline, CPU-only.
+
+opencv-python-headless>=4.9.0
+Pillow>=10.0.0
+numpy>=1.26.0
+PyYAML>=6.0.1
+
+# Detección + OCR de japonés
+paddlepaddle>=2.6.0
+paddleocr>=2.7.0
+manga-ocr>=0.1.11
+
+# Traducción offline JA->EN->ES
+argostranslate>=1.9.6
+
+# Servidor HTTP
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+
+# Opcional: traducción online de mayor calidad, requiere API key propia
+# (no es necesario para que la app funcione, todo el stack default es gratis)
+deepl>=1.17.0

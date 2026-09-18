@@ -1,7 +1,15 @@
-# Copiar a config.yaml y ajustar.
+# Copiar a config.yaml y ajustar. Este mismo archivo lo usan tanto el cliente
+# (secciones capture/overlay/server) como el servidor Docker (el resto), así
+# que basta un solo config.yaml para todo.
+
+server:
+  # Solo lo usa el cliente para saber a quién mandarle los frames. El puerto
+  # tiene que matchear el que publica docker-compose.yml (8000 por defecto).
+  url: http://localhost:8000
+  timeout_s: 5.0
 
 capture:
-  device_index: 0          # ver `python -m translatens2live.list_devices`
+  device_index: 0          # ver `python -m translatens2live.client.list_devices`
   backend: dshow           # dshow (Windows) | v4l2 (Linux) | any
   width: 1920
   height: 1080
@@ -41,4 +49,7 @@ overlay:
   show_debug_boxes: false
 
 cache:
-  persist_path: null       # ej: cache/mi_juego.json, para guardar entre sesiones
+  # Vive dentro del contenedor del servidor. docker-compose.yml monta ./cache
+  # en /app/cache, así que esto persiste entre reinicios del contenedor.
+  # Poné un nombre por juego (ej: cache/mi_juego.json) si querés separarlas.
+  persist_path: cache/translations.json

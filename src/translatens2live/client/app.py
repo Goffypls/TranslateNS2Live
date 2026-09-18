@@ -1,4 +1,5 @@
-"""Punto de entrada: abre la ventana con el feed de la capturadora + overlay en vivo."""
+"""Punto de entrada del cliente: abre la ventana con el feed de la capturadora
++ overlay en vivo, traduciendo vía el servidor Docker (ver server/main.py)."""
 
 from __future__ import annotations
 
@@ -6,10 +7,10 @@ import sys
 
 import cv2
 
+from ..config import AppConfig, load_config
 from .capture import CaptureThread
-from .config import AppConfig, load_config
 from .overlay import render_overlay
-from .pipeline import ProcessingThread
+from .remote_pipeline import RemoteProcessingThread
 
 WINDOW_NAME = "TranslateNS2Live"
 
@@ -18,7 +19,7 @@ def run(config: AppConfig) -> None:
     capture = CaptureThread(config.capture)
     capture.start()
 
-    processing = ProcessingThread(config)
+    processing = RemoteProcessingThread(config)
     processing.start(get_frame=capture.get_latest)
 
     show_overlay = True

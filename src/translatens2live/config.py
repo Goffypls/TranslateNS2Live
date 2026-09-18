@@ -69,6 +69,16 @@ class CacheConfig:
 
 
 @dataclass
+class ServerConfig:
+    """Solo la usa el cliente: dónde encontrar el servidor Docker con el motor de traducción."""
+
+    host: str = "0.0.0.0"
+    port: int = 8000
+    url: str = "http://localhost:8000"
+    timeout_s: float = 5.0
+
+
+@dataclass
 class AppConfig:
     capture: CaptureConfig = field(default_factory=CaptureConfig)
     detection: DetectionConfig = field(default_factory=DetectionConfig)
@@ -78,6 +88,7 @@ class AppConfig:
     pipeline: PipelineConfig = field(default_factory=PipelineConfig)
     overlay: OverlayConfig = field(default_factory=OverlayConfig)
     cache: CacheConfig = field(default_factory=CacheConfig)
+    server: ServerConfig = field(default_factory=ServerConfig)
 
 
 _SECTION_TYPES = {
@@ -89,6 +100,7 @@ _SECTION_TYPES = {
     "pipeline": PipelineConfig,
     "overlay": OverlayConfig,
     "cache": CacheConfig,
+    "server": ServerConfig,
 }
 
 
