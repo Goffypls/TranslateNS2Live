@@ -129,6 +129,11 @@ Controles en la ventana del cliente:
 - `o` — mostrar/ocultar overlay de traducción
 - `d` — mostrar/ocultar cajas de debug (bbox verde)
 - `c` — limpiar la caché de traducciones del servidor
+- **Click y arrastrar con el mouse** — elegir la región de la pantalla a traducir (por
+  ejemplo, solo la caja de diálogo del juego). Mientras esté activa se ve un recuadro
+  naranja; solo esa zona se manda al servidor, así se ignoran íconos, menús o arte de
+  tapa que no interesa traducir.
+- `x` — volver a analizar la pantalla completa (borra la región elegida)
 
 ### Fuente para el overlay
 

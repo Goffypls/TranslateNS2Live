@@ -36,12 +36,30 @@ from ..protocol import boxes_from_json
 from ..types import BBox, TranslatedBox
 
 
+def _clamp_roi(roi: BBox, frame_w: int, frame_h: int) -> BBox | None:
+    x1 = max(0, min(roi.x1, frame_w - 1))
+    y1 = max(0, min(roi.y1, frame_h - 1))
+    x2 = max(x1 + 1, min(roi.x2, frame_w))
+    y2 = max(y1 + 1, min(roi.y2, frame_h))
+    return BBox(x1, y1, x2, y2)
+
+
 def _scale_box(box: TranslatedBox, factor: float) -> TranslatedBox:
     b = box.bbox
     return TranslatedBox(
         bbox=BBox(
             round(b.x1 * factor), round(b.y1 * factor), round(b.x2 * factor), round(b.y2 * factor)
         ),
+        source_text=box.source_text,
+        translated_text=box.translated_text,
+        stable=box.stable,
+    )
+
+
+def _offset_box(box: TranslatedBox, dx: int, dy: int) -> TranslatedBox:
+    b = box.bbox
+    return TranslatedBox(
+        bbox=BBox(b.x1 + dx, b.y1 + dy, b.x2 + dx, b.y2 + dy),
         source_text=box.source_text,
         translated_text=box.translated_text,
         stable=box.stable,
@@ -60,6 +78,15 @@ class RemoteProcessingThread:
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
         self._get_frame = None
+        self._roi: BBox | None = None  # región elegida por el usuario; None = pantalla completa
+
+    def set_roi(self, roi: BBox | None) -> None:
+        """Restringe el análisis a esta región del frame (None = volver a full frame)."""
+
+        self._roi = roi
+
+    def get_roi(self) -> BBox | None:
+        return self._roi
 
     def start(self, get_frame) -> None:
         self._get_frame = get_frame
@@ -79,6 +106,18 @@ class RemoteProcessingThread:
             time.sleep(max(0.0, interval - elapsed))
 
     def _send_frame(self, url: str, frame_bgr: np.ndarray) -> None:
+        roi_offset_x = roi_offset_y = 0
+        roi = self._roi
+        if roi is not None:
+            full_h, full_w = frame_bgr.shape[:2]
+            clamped = _clamp_roi(roi, full_w, full_h)
+            if clamped is None:
+                return
+            frame_bgr = frame_bgr[clamped.y1 : clamped.y2, clamped.x1 : clamped.x2]
+            roi_offset_x, roi_offset_y = clamped.x1, clamped.y1
+            if frame_bgr.size == 0:
+                return
+
         frame_h, frame_w = frame_bgr.shape[:2]
         max_width = self._config.pipeline.max_send_width
         scale = 1.0
@@ -114,6 +153,8 @@ class RemoteProcessingThread:
         if scale != 1.0:
             inv = 1.0 / scale
             boxes = [_scale_box(b, inv) for b in boxes]
+        if roi_offset_x or roi_offset_y:
+            boxes = [_offset_box(b, roi_offset_x, roi_offset_y) for b in boxes]
 
         max_age = self._config.pipeline.overlay_max_age_s
         now = time.monotonic()
