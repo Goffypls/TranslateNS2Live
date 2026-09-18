@@ -15,6 +15,11 @@ Dos cosas para que se sienta rápido y no "pegado":
 - Si la última respuesta exitosa es más vieja que `pipeline.overlay_max_age_s`
   (el servidor está lento, se cayó una request, etc.), se deja de mostrar en
   vez de quedar una traducción vieja pegada sobre contenido que ya cambió.
+- Si un frame puntual no devuelve cajas (el detector no encontró nada esta
+  vez, algo normal en video en vivo), NO se borra el overlay de inmediato:
+  se mantiene la última traducción no vacía durante `overlay_max_age_s`
+  antes de desaparecer. Sin esto, el overlay titilaba cada vez que el
+  detector fallaba un frame suelto.
 """
 
 from __future__ import annotations
@@ -49,7 +54,8 @@ class RemoteProcessingThread:
         self._session = requests.Session()
 
         self._latest_boxes: list[TranslatedBox] = []
-        self._latest_update_time = 0.0
+        self._last_contact_time = 0.0   # última vez que el servidor respondió (para detectar caídas)
+        self._last_nonempty_time = 0.0  # última vez que esa respuesta trajo cajas
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -109,15 +115,23 @@ class RemoteProcessingThread:
             inv = 1.0 / scale
             boxes = [_scale_box(b, inv) for b in boxes]
 
+        max_age = self._config.pipeline.overlay_max_age_s
+        now = time.monotonic()
         with self._lock:
-            self._latest_boxes = boxes
-            self._latest_update_time = time.monotonic()
+            self._last_contact_time = now
+            if boxes:
+                self._latest_boxes = boxes
+                self._last_nonempty_time = now
+            elif now - self._last_nonempty_time > max_age:
+                # Ya pasó suficiente tiempo sin encontrar nada: recién ahí se
+                # borra. Un solo frame sin cajas no alcanza para ocultar el
+                # overlay (evita el titileo).
+                self._latest_boxes = []
 
     def get_latest_boxes(self) -> list[TranslatedBox]:
         with self._lock:
-            age = time.monotonic() - self._latest_update_time
-            if age > self._config.pipeline.overlay_max_age_s:
-                return []
+            if time.monotonic() - self._last_contact_time > self._config.pipeline.overlay_max_age_s:
+                return []  # el servidor no responde hace rato: no mostrar nada viejo
             return list(self._latest_boxes)
 
     def clear_cache(self) -> None:

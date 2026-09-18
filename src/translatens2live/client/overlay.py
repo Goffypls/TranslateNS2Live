@@ -139,6 +139,12 @@ def render_overlay(
         rect_y2 = rect_y1 + rect_h
 
         radius = min(config.corner_radius, int(rect_w // 2), int(rect_h // 2))
+        shadow_offset = 3
+        draw.rounded_rectangle(
+            [rect_x1 + shadow_offset, rect_y1 + shadow_offset, rect_x2 + shadow_offset, rect_y2 + shadow_offset],
+            radius=max(0, radius),
+            fill=(0, 0, 0, min(255, bg_alpha // 2)),
+        )
         draw.rounded_rectangle(
             [rect_x1, rect_y1, rect_x2, rect_y2], radius=max(0, radius), fill=bg_color
         )

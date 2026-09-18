@@ -21,8 +21,17 @@ class CaptureConfig:
 @dataclass
 class DetectionConfig:
     backend: str = "paddleocr"
-    min_box_area: int = 120
-    det_db_box_thresh: float = 0.5
+    # Filtra recuadros chicos (etiquetas de íconos, tooltips de botones) que
+    # no son diálogo/menú real. Si algún menú legítimo usa texto muy chico y
+    # queda afuera, hay que bajar este valor para ese juego en particular.
+    min_box_area: int = 600
+    # det_db_thresh: qué tan "seguro" tiene que estar el modelo de que un
+    # píxel es texto antes de agruparlo en una caja. Bajarlo agarra texto más
+    # fino/liviano (títulos de menú), pero puede traer más ruido.
+    det_db_thresh: float = 0.2
+    # det_db_box_thresh: una vez agrupados los píxeles en una caja candidata,
+    # qué tan segura tiene que estar esa caja completa para conservarla.
+    det_db_box_thresh: float = 0.4
     # Cuánto se expande cada caja detectada antes de agruparla con vecinas.
     # Subirlo ayuda a que títulos con caracteres separados (típico de logos
     # de juego) se detecten como una sola caja en vez de fragmentos chicos

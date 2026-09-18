@@ -17,8 +17,9 @@ capture:
 
 detection:
   backend: paddleocr       # detector de regiones de texto
-  min_box_area: 120        # px^2, descarta ruido/puntos sueltos
-  det_db_box_thresh: 0.5
+  min_box_area: 600        # px^2, descarta etiquetas de íconos/tooltips chicos
+  det_db_thresh: 0.2       # sensibilidad a nivel píxel; bajalo si un título/menú no se detecta
+  det_db_box_thresh: 0.4   # sensibilidad a nivel de caja ya agrupada
   det_db_unclip_ratio: 1.8 # subilo si los títulos con letras espaciadas quedan sin detectar
   line_merge_gap_factor: 1.5 # junta fragmentos de la misma línea en un solo recuadro (0 = desactivar)
 
