@@ -6,8 +6,10 @@ numpy>=1.26.0
 PyYAML>=6.0.1
 
 # Detección + OCR de japonés
-paddlepaddle>=2.6.0
-paddleocr>=2.7.0
+# Fijado a la serie 2.x: PaddleOCR 3.x reescribió la API (sacó show_log,
+# use_angle_cls, etc.) y rompe detection.py, que está escrito contra la API 2.x.
+paddlepaddle>=2.6.0,<3.0.0
+paddleocr>=2.7.0,<3.0.0
 manga-ocr>=0.1.11
 
 # Traducción offline JA->EN->ES
