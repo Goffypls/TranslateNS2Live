@@ -96,12 +96,12 @@ class FrameProcessor:
             return list(self._last_results)
         self._last_frame_signature = signature
 
-        boxes = self._detector.detect(frame_bgr)
-        boxes = merge_line_boxes(boxes, self._config.detection.line_merge_gap_factor)
-        boxes = boxes[: self._config.pipeline.max_boxes_per_frame]
+        all_boxes = self._detector.detect(frame_bgr)
+        all_boxes = merge_line_boxes(all_boxes, self._config.detection.line_merge_gap_factor)
+        boxes_to_process = all_boxes[: self._config.pipeline.max_boxes_per_frame]
 
         results: list[TranslatedBox] = []
-        for bbox in boxes:
+        for bbox in boxes_to_process:
             crop = _safe_crop(frame_bgr, bbox)
             gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.size else crop
             content_hash = average_hash(gray)
@@ -128,7 +128,16 @@ class FrameProcessor:
             if updated is not None:
                 results.append(updated)
 
-        self._tracker.prune(boxes)
+        # Importante: se podan los recuadros trackeados contra la lista
+        # COMPLETA de detecciones de este frame (`all_boxes`), no solo la
+        # que se llegó a procesar (`boxes_to_process`). Si se comparara
+        # contra la lista recortada, un recuadro real que quedó afuera del
+        # límite por este frame parecía "no estar más" y se podaba algo que
+        # en realidad seguía en pantalla; y al revés, un recuadro fantasma
+        # de una pantalla anterior podía sobrevivir la poda simplemente
+        # porque el recuadro que lo hubiera "tapado" fue el que quedó
+        # recortado.
+        self._tracker.prune(all_boxes)
         self._last_results = results
         return results
 

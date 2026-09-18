@@ -23,6 +23,7 @@ from ..types import BBox, TranslatedBox
 
 _PADDING = 7
 _LINE_SPACING = 4
+_COVER_MARGIN = 5  # el fondo sobresale esto del recuadro detectado para tapar bien el original
 _SUPERSAMPLE = 3  # el texto se renderiza a 3x y se reduce con LANCZOS: antialiasing mucho más fino
 
 
@@ -131,12 +132,14 @@ def render_overlay(
         if not lines:
             continue
 
-        # El fondo cubre como mínimo el recuadro original (tapa el texto en
-        # japonés); si la traducción no entra ni al tamaño mínimo, la caja
-        # crece un poco en vez de recortar el texto, manteniéndose centrada
-        # en el mismo lugar.
-        rect_w = max(box.bbox.width, block_w + 2 * _PADDING)
-        rect_h = max(box.bbox.height, block_h + 2 * _PADDING)
+        # El fondo cubre como mínimo el recuadro original más un margen
+        # (tapa el texto en japonés incluyendo los bordes/antialiasing que
+        # sobresalen un poco de la caja que detectó el detector); si la
+        # traducción no entra ni al tamaño mínimo, la caja crece un poco más
+        # en vez de recortar el texto, manteniéndose centrada en el mismo
+        # lugar.
+        rect_w = max(box.bbox.width + 2 * _COVER_MARGIN, block_w + 2 * _PADDING)
+        rect_h = max(box.bbox.height + 2 * _COVER_MARGIN, block_h + 2 * _PADDING)
         cx = box.bbox.x1 + box.bbox.width / 2
         cy = box.bbox.y1 + box.bbox.height / 2
         rect_x1 = int(round(max(0, min(frame_w - rect_w, cx - rect_w / 2))))

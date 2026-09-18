@@ -36,12 +36,12 @@ translation:
 
 tracker:
   iou_match_threshold: 0.4     # a partir de qué solapamiento se considera "misma caja"
-  content_change_threshold: 6  # distancia de hash perceptual para disparar reprocesamiento
+  content_change_threshold: 10 # distancia de hash perceptual para disparar reprocesamiento
   stable_frames_to_lock: 2     # frames seguidos iguales antes de dar la traducción por firme
 
 pipeline:
   process_every_ms: 100    # cada cuánto se manda un frame al servidor
-  max_boxes_per_frame: 12
+  max_boxes_per_frame: 24
   max_send_width: 1280     # el cliente achica el frame a este ancho antes de mandarlo (0 = no achicar)
   overlay_max_age_s: 1.0    # si la última traducción es más vieja que esto, se deja de mostrar
   frame_change_threshold: 2.5 # si la pantalla no cambió más que esto, no se reprocesa nada (evita el titileo)

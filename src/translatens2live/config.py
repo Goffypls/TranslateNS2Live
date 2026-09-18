@@ -61,14 +61,14 @@ class TranslationConfig:
 @dataclass
 class TrackerConfig:
     iou_match_threshold: float = 0.4
-    content_change_threshold: int = 6
+    content_change_threshold: int = 10
     stable_frames_to_lock: int = 2
 
 
 @dataclass
 class PipelineConfig:
     process_every_ms: int = 100
-    max_boxes_per_frame: int = 12
+    max_boxes_per_frame: int = 24
     # El cliente achica el frame a este ancho máximo antes de mandarlo al
     # servidor (0 = mandar a resolución original). PaddleOCR/manga-ocr
     # tardan más cuanto más grande es la imagen, así que esto es la palanca
