@@ -57,6 +57,8 @@ class PipelineConfig:
 class OverlayConfig:
     font_path: str = "assets/fonts/NotoSansJP-Regular.otf"
     font_size: int = 20
+    min_font_size: int = 11        # no reduce la letra de la traducción por debajo de esto
+    corner_radius: int = 8         # esquinas redondeadas del fondo, en px
     background_opacity: float = 0.75
     text_color: tuple[int, int, int] = (255, 255, 255)
     background_color: tuple[int, int, int] = (10, 10, 10)

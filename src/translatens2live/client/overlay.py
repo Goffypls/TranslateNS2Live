@@ -2,8 +2,10 @@
 
 Usa PIL para dibujar el texto porque `cv2.putText` no soporta bien acentos
 ni tipografías con fallback amplio de Unicode (kanji + español con tildes en
-la misma pasada de debug). Se compone un fondo semitransparente detrás de
-cada línea para que el texto se lea sobre cualquier imagen de fondo.
+la misma pasada). El overlay se dibuja directamente sobre el recuadro
+original (tapando el texto japonés) en vez de flotar arriba, con el tamaño
+de letra ajustado automáticamente para que la traducción entre en la caja
+sin desbordar ni quedar microscópica.
 """
 
 from __future__ import annotations
@@ -17,10 +19,13 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from ..config import OverlayConfig
-from ..types import TranslatedBox
+from ..types import BBox, TranslatedBox
+
+_PADDING = 4
+_LINE_SPACING = 3
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=16)
 def _load_font(font_path: str, size: int) -> ImageFont.FreeTypeFont:
     path = Path(font_path)
     if path.exists():
@@ -42,6 +47,49 @@ def _wrap_to_width(
     return textwrap.wrap(text, width=chars_per_line) or [text]
 
 
+def _measure_block(
+    draw: ImageDraw.ImageDraw, lines: list[str], font: ImageFont.FreeTypeFont
+) -> tuple[int, int]:
+    if not lines:
+        return 0, 0
+    widths = []
+    heights = []
+    for line in lines:
+        l, t, r, b = draw.textbbox((0, 0), line, font=font)
+        widths.append(r - l)
+        heights.append(b - t)
+    block_w = max(widths)
+    block_h = sum(heights) + _LINE_SPACING * (len(lines) - 1)
+    return block_w, block_h
+
+
+def _fit_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font_path: str,
+    box_w: int,
+    box_h: int,
+    max_size: int,
+    min_size: int,
+) -> tuple[ImageFont.FreeTypeFont, list[str], int, int]:
+    """Busca, de mayor a menor, el tamaño de letra más grande que entra en la caja."""
+
+    available_w = max(1, box_w - 2 * _PADDING)
+    available_h = max(1, box_h - 2 * _PADDING)
+
+    last: tuple[ImageFont.FreeTypeFont, list[str], int, int] | None = None
+    for size in range(max_size, min_size - 1, -1):
+        font = _load_font(font_path, size)
+        lines = _wrap_to_width(draw, text, font, available_w)
+        block_w, block_h = _measure_block(draw, lines, font)
+        last = (font, lines, block_w, block_h)
+        if block_h <= available_h and block_w <= available_w:
+            return last
+
+    assert last is not None
+    return last
+
+
 def render_overlay(
     frame_bgr: np.ndarray,
     boxes: list[TranslatedBox],
@@ -53,40 +101,62 @@ def render_overlay(
     frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
     image = Image.fromarray(frame_rgb)
     draw = ImageDraw.Draw(image, "RGBA")
-    font = _load_font(config.font_path, config.font_size)
 
     bg_alpha = int(255 * config.background_opacity)
     bg_color = (*config.background_color, bg_alpha)
     text_color = (*config.text_color, 255)
+    stroke_color = (0, 0, 0, min(255, bg_alpha + 40))
+    frame_h, frame_w = frame_bgr.shape[:2]
 
     for box in boxes:
         if not box.translated_text:
             continue
-        lines = _wrap_to_width(draw, box.translated_text, font, box.bbox.width or 200)
 
-        line_heights = [
-            draw.textbbox((0, 0), line, font=font)[3]
-            - draw.textbbox((0, 0), line, font=font)[1]
-            for line in lines
-        ]
-        total_height = sum(line_heights) + 4 * len(lines)
+        max_size = max(config.font_size, config.min_font_size)
+        font, lines, block_w, block_h = _fit_text(
+            draw,
+            box.translated_text,
+            config.font_path,
+            box.bbox.width,
+            box.bbox.height,
+            max_size,
+            config.min_font_size,
+        )
+        if not lines:
+            continue
 
-        # El overlay se dibuja pegado arriba del recuadro original (como pidió el
-        # usuario: "arriba de cada cuadradito"), y si no entra por estar cerca del
-        # borde superior, se dibuja adentro del propio recuadro.
-        top = box.bbox.y1 - total_height - 6
-        if top < 0:
-            top = box.bbox.y1 + 2
+        # El fondo cubre como mínimo el recuadro original (tapa el texto en
+        # japonés); si la traducción no entra ni al tamaño mínimo, la caja
+        # crece un poco en vez de recortar el texto, manteniéndose centrada
+        # en el mismo lugar.
+        rect_w = max(box.bbox.width, block_w + 2 * _PADDING)
+        rect_h = max(box.bbox.height, block_h + 2 * _PADDING)
+        cx = box.bbox.x1 + box.bbox.width / 2
+        cy = box.bbox.y1 + box.bbox.height / 2
+        rect_x1 = max(0, min(frame_w - rect_w, cx - rect_w / 2))
+        rect_y1 = max(0, min(frame_h - rect_h, cy - rect_h / 2))
+        rect_x2 = rect_x1 + rect_w
+        rect_y2 = rect_y1 + rect_h
 
-        draw.rectangle(
-            [box.bbox.x1, top, box.bbox.x1 + box.bbox.width, top + total_height],
-            fill=bg_color,
+        radius = min(config.corner_radius, int(rect_w // 2), int(rect_h // 2))
+        draw.rounded_rectangle(
+            [rect_x1, rect_y1, rect_x2, rect_y2], radius=max(0, radius), fill=bg_color
         )
 
-        y = top + 2
-        for line, h in zip(lines, line_heights):
-            draw.text((box.bbox.x1 + 4, y), line, font=font, fill=text_color)
-            y += h + 4
+        y = rect_y1 + (rect_h - block_h) / 2
+        for line in lines:
+            l, t, r, b = draw.textbbox((0, 0), line, font=font)
+            line_w = r - l
+            x = rect_x1 + (rect_w - line_w) / 2
+            draw.text(
+                (x, y - t),
+                line,
+                font=font,
+                fill=text_color,
+                stroke_width=1,
+                stroke_fill=stroke_color,
+            )
+            y += (b - t) + _LINE_SPACING
 
         if show_debug:
             draw.rectangle(box.bbox.as_tuple(), outline=(0, 255, 0, 255), width=2)
