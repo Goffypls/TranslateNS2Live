@@ -23,9 +23,10 @@ from ..types import BBox, TranslatedBox
 
 _PADDING = 7
 _LINE_SPACING = 4
+_SUPERSAMPLE = 3  # el texto se renderiza a 3x y se reduce con LANCZOS: antialiasing mucho más fino
 
 
-@lru_cache(maxsize=16)
+@lru_cache(maxsize=32)
 def _load_font(font_path: str, size: int) -> ImageFont.FreeTypeFont:
     path = Path(font_path)
     if path.exists():
@@ -71,18 +72,23 @@ def _fit_text(
     box_h: int,
     max_size: int,
     min_size: int,
-) -> tuple[ImageFont.FreeTypeFont, list[str], int, int]:
-    """Busca, de mayor a menor, el tamaño de letra más grande que entra en la caja."""
+) -> tuple[int, list[str], int, int]:
+    """Busca, de mayor a menor, el tamaño de letra más grande que entra en la caja.
+
+    Devuelve el tamaño elegido (no el font ya cargado) porque el renderizado
+    final se hace en un tamaño más grande (supersampling) para que se vea
+    más nítido; acá solo interesa qué tamaño "lógico" entra en la caja.
+    """
 
     available_w = max(1, box_w - 2 * _PADDING)
     available_h = max(1, box_h - 2 * _PADDING)
 
-    last: tuple[ImageFont.FreeTypeFont, list[str], int, int] | None = None
+    last: tuple[int, list[str], int, int] | None = None
     for size in range(max_size, min_size - 1, -1):
         font = _load_font(font_path, size)
         lines = _wrap_to_width(draw, text, font, available_w)
         block_w, block_h = _measure_block(draw, lines, font)
-        last = (font, lines, block_w, block_h)
+        last = (size, lines, block_w, block_h)
         if block_h <= available_h and block_w <= available_w:
             return last
 
@@ -113,7 +119,7 @@ def render_overlay(
             continue
 
         max_size = max(config.font_size, config.min_font_size)
-        font, lines, block_w, block_h = _fit_text(
+        font_size, lines, block_w, block_h = _fit_text(
             draw,
             box.translated_text,
             config.font_path,
@@ -133,37 +139,56 @@ def render_overlay(
         rect_h = max(box.bbox.height, block_h + 2 * _PADDING)
         cx = box.bbox.x1 + box.bbox.width / 2
         cy = box.bbox.y1 + box.bbox.height / 2
-        rect_x1 = max(0, min(frame_w - rect_w, cx - rect_w / 2))
-        rect_y1 = max(0, min(frame_h - rect_h, cy - rect_h / 2))
-        rect_x2 = rect_x1 + rect_w
-        rect_y2 = rect_y1 + rect_h
+        rect_x1 = int(round(max(0, min(frame_w - rect_w, cx - rect_w / 2))))
+        rect_y1 = int(round(max(0, min(frame_h - rect_h, cy - rect_h / 2))))
+        rect_w = int(round(rect_w))
+        rect_h = int(round(rect_h))
 
-        radius = min(config.corner_radius, int(rect_w // 2), int(rect_h // 2))
+        radius = min(config.corner_radius, rect_w // 2, rect_h // 2)
         shadow_offset = 3
         draw.rounded_rectangle(
-            [rect_x1 + shadow_offset, rect_y1 + shadow_offset, rect_x2 + shadow_offset, rect_y2 + shadow_offset],
+            [
+                rect_x1 + shadow_offset,
+                rect_y1 + shadow_offset,
+                rect_x1 + rect_w + shadow_offset,
+                rect_y1 + rect_h + shadow_offset,
+            ],
             radius=max(0, radius),
             fill=(0, 0, 0, min(255, bg_alpha // 2)),
         )
-        draw.rounded_rectangle(
-            [rect_x1, rect_y1, rect_x2, rect_y2], radius=max(0, radius), fill=bg_color
+
+        # El fondo + el texto se dibujan en un "tile" aparte a _SUPERSAMPLE
+        # veces el tamaño real y se reducen con LANCZOS antes de pegarlos:
+        # el antialiasing que hace freetype al tamaño final se ve bastante
+        # más tosco que renderizar grande y reducir, sobre todo en fuentes
+        # con kanji + texto chico.
+        ss = _SUPERSAMPLE
+        tile = Image.new("RGBA", (rect_w * ss, rect_h * ss), (0, 0, 0, 0))
+        tile_draw = ImageDraw.Draw(tile, "RGBA")
+        tile_draw.rounded_rectangle(
+            [0, 0, rect_w * ss, rect_h * ss], radius=max(0, radius) * ss, fill=bg_color
         )
 
-        stroke_width = max(1, round(getattr(font, "size", config.font_size) / 16))
-        y = rect_y1 + (rect_h - block_h) / 2
+        font_ss = _load_font(config.font_path, font_size * ss)
+        block_w_ss, block_h_ss = _measure_block(tile_draw, lines, font_ss)
+        stroke_width_ss = max(1, round(font_size * ss / 16))
+        y = (rect_h * ss - block_h_ss) / 2
         for line in lines:
-            l, t, r, b = draw.textbbox((0, 0), line, font=font)
+            l, t, r, b = tile_draw.textbbox((0, 0), line, font=font_ss)
             line_w = r - l
-            x = rect_x1 + (rect_w - line_w) / 2
-            draw.text(
+            x = (rect_w * ss - line_w) / 2
+            tile_draw.text(
                 (x, y - t),
                 line,
-                font=font,
+                font=font_ss,
                 fill=text_color,
-                stroke_width=stroke_width,
+                stroke_width=stroke_width_ss,
                 stroke_fill=stroke_color,
             )
-            y += (b - t) + _LINE_SPACING
+            y += (b - t) + _LINE_SPACING * ss
+
+        tile = tile.resize((rect_w, rect_h), Image.LANCZOS)
+        image.paste(tile, (rect_x1, rect_y1), tile)
 
         if show_debug:
             draw.rectangle(box.bbox.as_tuple(), outline=(0, 255, 0, 255), width=2)
