@@ -28,6 +28,10 @@ class DetectionConfig:
     # de juego) se detecten como una sola caja en vez de fragmentos chicos
     # que después se descartan como ruido.
     det_db_unclip_ratio: float = 1.8
+    # Junta en un solo recuadro los fragmentos que el detector separó pero
+    # están en la misma línea de texto (mismo alto, cerca horizontalmente).
+    # Evita traducir pedacitos de una misma oración por separado. 0 desactiva.
+    line_merge_gap_factor: float = 1.5
 
 
 @dataclass
@@ -70,9 +74,9 @@ class PipelineConfig:
 @dataclass
 class OverlayConfig:
     font_path: str = "assets/fonts/NotoSansJP-Regular.otf"
-    font_size: int = 20
-    min_font_size: int = 11        # no reduce la letra de la traducción por debajo de esto
-    corner_radius: int = 8         # esquinas redondeadas del fondo, en px
+    font_size: int = 28
+    min_font_size: int = 18        # no reduce la letra de la traducción por debajo de esto
+    corner_radius: int = 10        # esquinas redondeadas del fondo, en px
     background_opacity: float = 0.75
     text_color: tuple[int, int, int] = (255, 255, 255)
     background_color: tuple[int, int, int] = (10, 10, 10)

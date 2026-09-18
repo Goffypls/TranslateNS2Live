@@ -23,6 +23,7 @@ import numpy as np
 from .cache import TranslationCache
 from .config import AppConfig
 from .detection import TextDetector, get_detector
+from .layout import merge_line_boxes
 from .ocr import JapaneseOcr, get_ocr
 from .tracker import RegionTracker, average_hash
 from .translator import Translator, get_translator
@@ -72,6 +73,7 @@ class FrameProcessor:
 
     def process(self, frame_bgr: np.ndarray) -> list[TranslatedBox]:
         boxes = self._detector.detect(frame_bgr)
+        boxes = merge_line_boxes(boxes, self._config.detection.line_merge_gap_factor)
         boxes = boxes[: self._config.pipeline.max_boxes_per_frame]
 
         results: list[TranslatedBox] = []

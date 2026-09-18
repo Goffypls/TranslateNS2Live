@@ -20,6 +20,7 @@ detection:
   min_box_area: 120        # px^2, descarta ruido/puntos sueltos
   det_db_box_thresh: 0.5
   det_db_unclip_ratio: 1.8 # subilo si los títulos con letras espaciadas quedan sin detectar
+  line_merge_gap_factor: 1.5 # junta fragmentos de la misma línea en un solo recuadro (0 = desactivar)
 
 ocr:
   backend: manga_ocr       # reconocimiento del texto japonés por recuadro
@@ -45,9 +46,9 @@ pipeline:
 
 overlay:
   font_path: assets/fonts/NotoSansJP-Regular.otf
-  font_size: 20            # tamaño preferido; se achica automáticamente si no entra en la caja
-  min_font_size: 11        # nunca se achica más allá de esto
-  corner_radius: 8         # esquinas redondeadas del fondo (px)
+  font_size: 28            # tamaño preferido; se achica automáticamente si no entra en la caja
+  min_font_size: 18        # nunca se achica más allá de esto
+  corner_radius: 10        # esquinas redondeadas del fondo (px)
   background_opacity: 0.75
   text_color: [255, 255, 255]
   background_color: [10, 10, 10]

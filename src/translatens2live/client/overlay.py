@@ -21,8 +21,8 @@ from PIL import Image, ImageDraw, ImageFont
 from ..config import OverlayConfig
 from ..types import BBox, TranslatedBox
 
-_PADDING = 4
-_LINE_SPACING = 3
+_PADDING = 7
+_LINE_SPACING = 4
 
 
 @lru_cache(maxsize=16)
@@ -143,6 +143,7 @@ def render_overlay(
             [rect_x1, rect_y1, rect_x2, rect_y2], radius=max(0, radius), fill=bg_color
         )
 
+        stroke_width = max(1, round(getattr(font, "size", config.font_size) / 16))
         y = rect_y1 + (rect_h - block_h) / 2
         for line in lines:
             l, t, r, b = draw.textbbox((0, 0), line, font=font)
@@ -153,7 +154,7 @@ def render_overlay(
                 line,
                 font=font,
                 fill=text_color,
-                stroke_width=1,
+                stroke_width=stroke_width,
                 stroke_fill=stroke_color,
             )
             y += (b - t) + _LINE_SPACING
