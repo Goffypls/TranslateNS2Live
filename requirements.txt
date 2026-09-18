@@ -1,0 +1,18 @@
+# Captura y render
+opencv-python>=4.9.0
+Pillow>=10.0.0
+numpy>=1.26.0
+
+# Detección + OCR de japonés
+paddlepaddle>=2.6.0
+paddleocr>=2.7.0
+manga-ocr>=0.1.11
+
+# Traducción offline JA->EN->ES
+argostranslate>=1.9.6
+
+# Config
+PyYAML>=6.0.1
+
+# Opcional: traducción online de mayor calidad (requiere API key)
+deepl>=1.17.0

@@ -1,0 +1,44 @@
+# Copiar a config.yaml y ajustar.
+
+capture:
+  device_index: 0          # ver `python -m translatens2live.list_devices`
+  backend: dshow           # dshow (Windows) | v4l2 (Linux) | any
+  width: 1920
+  height: 1080
+  fps: 30
+
+detection:
+  backend: paddleocr       # detector de regiones de texto
+  min_box_area: 120        # px^2, descarta ruido/puntos sueltos
+  det_db_box_thresh: 0.5
+
+ocr:
+  backend: manga_ocr       # reconocimiento del texto japonés por recuadro
+  source_lang: ja
+
+translation:
+  backend: argos           # argos (offline) | deepl (online, requiere api_key)
+  source_lang: ja
+  target_lang: es
+  deepl_api_key: null      # solo si backend: deepl
+  pivot_lang: en           # argos: JA->EN->ES si no hay par directo JA->ES
+
+tracker:
+  iou_match_threshold: 0.4     # a partir de qué solapamiento se considera "misma caja"
+  content_change_threshold: 6  # distancia de hash perceptual para disparar reprocesamiento
+  stable_frames_to_lock: 2     # frames seguidos iguales antes de dar la traducción por firme
+
+pipeline:
+  process_every_ms: 150    # cada cuánto se corre detección+OCR sobre el frame más nuevo
+  max_boxes_per_frame: 12
+
+overlay:
+  font_path: assets/fonts/NotoSansJP-Regular.otf
+  font_size: 20
+  background_opacity: 0.75
+  text_color: [255, 255, 255]
+  background_color: [10, 10, 10]
+  show_debug_boxes: false
+
+cache:
+  persist_path: null       # ej: cache/mi_juego.json, para guardar entre sesiones
