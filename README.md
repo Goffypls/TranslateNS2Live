@@ -135,6 +135,27 @@ Controles en la ventana del cliente:
   tapa que no interesa traducir.
 - `x` — volver a analizar la pantalla completa (borra la región elegida)
 
+### Acceso directo de escritorio
+
+`start_goofyptrans.bat` levanta el servidor Docker, espera a que termine de cargar
+los modelos y abre el cliente, todo con un solo click. `stop_goofyptrans.bat` apaga
+el servidor (`docker compose down`) para no consumir nada cuando no lo estás usando
+(los modelos ya descargados no se pierden, quedan en volúmenes de Docker).
+
+Para armar un acceso directo en el escritorio con el ícono de GoofypTrans
+(`assets/icons/goofyptrans.ico`), corré esto una vez en PowerShell (ajustá la ruta
+si tu carpeta del proyecto es otra):
+
+```powershell
+$proyecto = "C:\Users\Chich\source\repos\TranslateNS2Live"
+$shell = New-Object -ComObject WScript.Shell
+$shortcut = $shell.CreateShortcut("$env:USERPROFILE\Desktop\GoofypTrans.lnk")
+$shortcut.TargetPath = "$proyecto\start_goofyptrans.bat"
+$shortcut.WorkingDirectory = $proyecto
+$shortcut.IconLocation = "$proyecto\assets\icons\goofyptrans.ico"
+$shortcut.Save()
+```
+
 ### Fuente para el overlay
 
 `assets/fonts/` no trae ninguna fuente versionada (ver `assets/fonts/README.md`):
